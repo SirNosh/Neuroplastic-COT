@@ -1,0 +1,20 @@
+transformers>=4.48.2
+datasets>=2.16.0
+peft>=0.8.0
+accelerate>=0.28.0
+bitsandbytes>=0.41.0
+torch>=2.0.0
+tqdm
+wandb
+numpy
+scipy
+pandas
+matplotlib
+seaborn
+regex
+
+# Avalanche: Industry-standard continual learning library
+avalanche-lib>=0.4.0
+
+# Additional continual learning tools
+scikit-learn
