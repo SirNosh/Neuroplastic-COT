@@ -21,7 +21,7 @@ from data_processor import CoTDataProcessor
 from neuroplasticity import (
     AdaptiveLearningRateScheduler,
     ElasticWeightConsolidation,
-    HebbianLearning,
+    SynapticIntelligence,
     DynamicTemperatureScheduler,
 )
 
@@ -61,10 +61,9 @@ def parse_args():
     # Neuroplasticity arguments
     parser.add_argument("--use_alr", action="store_true", help="Use Adaptive Learning Rate")
     parser.add_argument("--use_ewc", action="store_true", help="Use Elastic Weight Consolidation")
-    parser.add_argument("--use_hebbian", action="store_true", help="Use Hebbian Learning")
-    parser.add_argument("--ewc_lambda", type=float, default=0.1, help="EWC lambda")
-    parser.add_argument("--hebb_lambda", type=float, default=0.01, help="Hebbian learning lambda")
-    parser.add_argument("--hebb_update_interval", type=int, default=100, help="Hebbian update interval")
+    parser.add_argument("--use_si", action="store_true", help="Use Synaptic Intelligence")
+    parser.add_argument("--ewc_lambda", type=float, default=0.4, help="EWC lambda")
+    parser.add_argument("--si_lambda", type=float, default=0.4, help="SI lambda")
     
     # Memory optimization arguments
     parser.add_argument("--ewc_sample_size", type=int, default=50, help="Number of samples for EWC computation")
@@ -83,7 +82,7 @@ def setup_wandb(args):
         wandb.init(
             project=args.wandb_project,
             config=vars(args),
-            name=f"qwen2.5-3b-cot-{'alr' if args.use_alr else ''}-{'ewc' if args.use_ewc else ''}-{'hebb' if args.use_hebbian else ''}",
+            name=f"qwen2.5-3b-cot-{'alr' if args.use_alr else ''}-{'ewc' if args.use_ewc else ''}-{'si' if args.use_si else ''}",
         )
         logger.info("Initialized Weights & Biases logging")
 
@@ -207,16 +206,15 @@ def train(args):
         
         neuroplasticity_mechanisms.append("EWC")
     
-    # Hebbian Learning
-    hebbian = None
-    if args.use_hebbian:
-        logger.info("Using Hebbian Learning")
-        hebbian = HebbianLearning(
-            model, 
-            hebb_lambda=args.hebb_lambda, 
-            update_interval=args.hebb_update_interval
+    # Synaptic Intelligence
+    si = None
+    if args.use_si:
+        logger.info("Using Synaptic Intelligence")
+        si = SynapticIntelligence(
+            model,
+            si_lambda=args.si_lambda
         )
-        neuroplasticity_mechanisms.append("Hebbian")
+        neuroplasticity_mechanisms.append("SI")
     
     logger.info(f"Training with neuroplasticity mechanisms: {', '.join(neuroplasticity_mechanisms)}")
 
@@ -269,17 +267,17 @@ def train(args):
             
             # Update weights if gradient accumulation is complete
             if (step + 1) % args.gradient_accumulation_steps == 0:
+                # Update SI running sum before optimizer step
+                if si:
+                    si.update_running_sum()
+
                 optimizer.step()
                 lr_scheduler.step()
-                
+
                 # Apply ALR if enabled
                 if alr_scheduler:
                     alr_scheduler.step(loss.item())
-                
-                # Apply Hebbian update if enabled
-                if hebbian:
-                    hebbian.step()
-                
+
                 optimizer.zero_grad()
                 global_step += 1
 
@@ -348,9 +346,6 @@ def train(args):
     logger.info(f"Training metrics saved to {metrics_path}")
 
     # Clean up
-    if hebbian:
-        hebbian.cleanup()
-
     if args.use_wandb:
         wandb.finish()
 

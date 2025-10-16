@@ -1,6 +1,6 @@
 """
 Unified ablation training script for neuroplasticity mechanisms.
-Supports training with individual mechanisms: EWC only, ALR only, or Hebbian only.
+Supports training with individual mechanisms: EWC only, ALR only, or SI only.
 """
 import os
 import sys
@@ -20,7 +20,7 @@ def main():
         # Reset all neuroplasticity flags
         args.use_alr = False
         args.use_ewc = False
-        args.use_hebbian = False
+        args.use_si = False
 
         # Enable only the specified mechanism
         if ablation_mode == "alr":
@@ -29,12 +29,12 @@ def main():
         elif ablation_mode == "ewc":
             args.use_ewc = True
             args.output_dir = args.output_dir.replace("output", "output_ewc")
-        elif ablation_mode == "hebbian":
-            args.use_hebbian = True
-            args.output_dir = args.output_dir.replace("output", "output_hebbian")
+        elif ablation_mode == "si":
+            args.use_si = True
+            args.output_dir = args.output_dir.replace("output", "output_si")
         else:
             logger.error(f"Unknown ablation mode: {ablation_mode}")
-            logger.error("Valid modes: alr, ewc, hebbian")
+            logger.error("Valid modes: alr, ewc, si")
             sys.exit(1)
 
     # Run training with modified args

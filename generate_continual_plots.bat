@@ -22,12 +22,12 @@ python plot_continual.py ^
     --results_files ^
         ./output_continual_baseline/continual_results.json ^
         ./output_continual_ewc/continual_results.json ^
-        ./output_continual_hebbian/continual_results.json ^
+        ./output_continual_si/continual_results.json ^
         ./output_continual_full/continual_results.json ^
     --model_names ^
         baseline ^
         ewc ^
-        hebbian ^
+        si ^
         full_neuroplastic ^
     --output_dir ./plots_continual
 

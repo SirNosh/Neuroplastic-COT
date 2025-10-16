@@ -28,7 +28,7 @@ from dataset_loaders import ContinualDatasetLoader
 from neuroplasticity import (
     AdaptiveLearningRateScheduler,
     ElasticWeightConsolidation,
-    HebbianLearning,
+    SynapticIntelligence,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -58,9 +58,9 @@ def parse_args():
     # Neuroplasticity arguments
     parser.add_argument("--use_alr", action="store_true")
     parser.add_argument("--use_ewc", action="store_true")
-    parser.add_argument("--use_hebbian", action="store_true")
+    parser.add_argument("--use_si", action="store_true")
     parser.add_argument("--ewc_lambda", type=float, default=0.4, help="EWC importance (higher = more retention)")
-    parser.add_argument("--hebb_lambda", type=float, default=0.01)
+    parser.add_argument("--si_lambda", type=float, default=0.4, help="SI importance (higher = more retention)")
     parser.add_argument("--ewc_sample_size", type=int, default=100)
 
     # Misc
@@ -182,15 +182,22 @@ def train_continual(args):
 
     # Initialize neuroplasticity mechanisms
     ewc = None
+    si = None
     alr_scheduler = None
-    hebbian = None
 
     if args.use_ewc:
         ewc = ElasticWeightConsolidation(
             model=model,
-            lambda_ewc=args.ewc_lambda
+            ewc_lambda=args.ewc_lambda
         )
         logger.info(f"EWC enabled with lambda={args.ewc_lambda}")
+
+    if args.use_si:
+        si = SynapticIntelligence(
+            model=model,
+            si_lambda=args.si_lambda
+        )
+        logger.info(f"SI enabled with lambda={args.si_lambda}")
 
     # Track results across phases
     continual_results = {
@@ -237,14 +244,6 @@ def train_continual(args):
                 factor=0.5
             )
 
-        # Hebbian
-        if args.use_hebbian:
-            hebbian = HebbianLearning(
-                model=model,
-                lambda_hebb=args.hebb_lambda,
-                update_interval=100
-            )
-
         # Training loop for this phase
         model.train()
         global_step = 0
@@ -265,18 +264,24 @@ def train_continual(args):
                     ewc_loss = ewc.ewc_loss()
                     loss += ewc_loss
 
+                # Add SI loss if enabled and this isn't the first phase
+                if si and phase_idx > 0:
+                    si_loss = si.si_loss()
+                    loss += si_loss
+
                 loss = loss / args.gradient_accumulation_steps
                 loss.backward()
 
                 if (step + 1) % args.gradient_accumulation_steps == 0:
+                    # Update SI running sum before optimizer step
+                    if si:
+                        si.update_running_sum()
+
                     optimizer.step()
                     lr_scheduler.step()
 
                     if alr_scheduler:
                         alr_scheduler.step(loss.item())
-
-                    if hebbian:
-                        hebbian.step()
 
                     optimizer.zero_grad()
                     global_step += 1
@@ -309,6 +314,10 @@ def train_continual(args):
 
             ewc.compute_fisher_information(fisher_dataloader)
             logger.info("Fisher Information computed")
+
+        # Update SI importance (protect this phase's knowledge)
+        if si and phase_idx < len(phase_names) - 1:  # Not on last phase
+            si.update_omega()
 
         # Save checkpoint after each phase
         checkpoint_dir = os.path.join(args.output_dir, f"phase_{phase_idx+1}_{phase_name}")
@@ -366,10 +375,6 @@ def train_continual(args):
     final_dir = os.path.join(args.output_dir, "final-model")
     model.save_pretrained(final_dir)
     tokenizer.save_pretrained(final_dir)
-
-    # Cleanup
-    if hebbian:
-        hebbian.cleanup()
 
     logger.info("Continual learning training complete!")
 

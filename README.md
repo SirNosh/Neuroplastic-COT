@@ -88,17 +88,23 @@ RESULT: Measure forgetting across all tasks
 
 ### Key Metric: **Catastrophic Forgetting**
 
+**Implementation Note**: This codebase uses **loss** (not accuracy) for evaluation, so the forgetting formula is adjusted accordingly.
+
 ```python
-Forgetting = (Performance_initial - Performance_final) / Performance_initial
+# For LOSS-based metrics (lower is better):
+Forgetting = (Loss_final - Loss_initial) / Loss_initial
 
 # Example:
-# Arithmetic after Phase 1: 80% accuracy
-# Arithmetic after Phase 3: 40% accuracy
-# Forgetting = (80 - 40) / 80 = 50% ← CATASTROPHIC!
+# Arithmetic after Phase 1: Loss = 2.0
+# Arithmetic after Phase 3: Loss = 4.0 (performance degraded)
+# Forgetting = (4.0 - 2.0) / 2.0 = 100% ← CATASTROPHIC!
 
 # With Neuroplasticity:
-# Arithmetic after Phase 3: 72% accuracy
-# Forgetting = (80 - 72) / 80 = 10% ← SUCCESS!
+# Arithmetic after Phase 3: Loss = 2.2 (minimal degradation)
+# Forgetting = (2.2 - 2.0) / 2.0 = 10% ← SUCCESS!
+
+# Note: Positive percentage = forgetting occurred
+#       Negative percentage = improvement (backward transfer)
 ```
 
 ---
@@ -448,7 +454,7 @@ After running experiments, each model's `continual_results.json` contains:
   "phases": ["arithmetic", "algebra", "geometry"],
   "performance_matrix": {
     "after_arithmetic_test_arithmetic": 2.34,
-    "after_algebra_test_arithmetic": 2.56,  ← Forgetting!
+    "after_algebra_test_arithmetic": 2.56,  ← Forgetting! (loss increased)
     "after_algebra_test_algebra": 2.89,
     "after_geometry_test_arithmetic": 2.71,
     "after_geometry_test_algebra": 2.95,
@@ -458,18 +464,21 @@ After running experiments, each model's `continual_results.json` contains:
     "arithmetic": {
       "initial_loss": 2.34,
       "final_loss": 2.71,
-      "forgetting_percentage": 15.8
+      "forgetting_percentage": 15.8  // (2.71 - 2.34) / 2.34 = 15.8%
     },
     "algebra": {
       "initial_loss": 2.89,
       "final_loss": 2.95,
-      "forgetting_percentage": 2.1
+      "forgetting_percentage": 2.1   // (2.95 - 2.89) / 2.89 = 2.1%
     }
   }
 }
 ```
 
-**Lower forgetting % = Better retention!**
+**Key:**
+- Values are **loss** (lower is better)
+- **forgetting_percentage** = (final_loss - initial_loss) / initial_loss × 100
+- **Lower forgetting % = Better retention!**
 
 ---
 
